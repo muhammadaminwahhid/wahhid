@@ -1,13 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const WahhidApp());
 }
 
-// Global ThemeNotifier — Tungi va Kunduzgi rejimni boshqarish uchun
+// Global ThemeNotifier
 class ThemeNotifier extends ValueNotifier<ThemeMode> {
   ThemeNotifier() : super(ThemeMode.dark);
 
@@ -18,52 +17,57 @@ class ThemeNotifier extends ValueNotifier<ThemeMode> {
 
 final themeNotifier = ThemeNotifier();
 
-// SQLite Database Helper
-class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
+// SharedPreferences Storage Helper (Bilimlar va Sevimlilar uchun)
+class LocalStorage {
+  static Future<List<Map<String, String>>> getBilimlar() async {
+    final prefs = await SharedPreferences.getInstance();
+    final titles = prefs.getStringList('titles') ?? [
+      'Flutter nima?',
+      'Shared Preferences',
+      'Sevimlilar tizimi',
+    ];
+    final contents = prefs.getStringList('contents') ?? [
+      'Google tomonidan yaratilgan cross-platform framework.',
+      'Ma\'lumotlarni qurilmada kalit-qiymat ko\'rinishida saqlash.',
+      'Foydalanuvchiga yoqqan maqolalarni alohida saqlab borish imkoniyati.'
+    ];
 
-  DatabaseHelper._init();
-
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('wahhid_pro.db');
-    return _database!;
+    List<Map<String, String>> list = [];
+    for (int i = 0; i < titles.length; i++) {
+      list.add({'title': titles[i], 'content': contents[i]});
+    }
+    return list;
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+  static Future<void> addBilim(String title, String content) async {
+    final prefs = await SharedPreferences.getInstance();
+    final titles = prefs.getStringList('titles') ?? [];
+    final contents = prefs.getStringList('contents') ?? [];
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
+    titles.insert(0, title);
+    contents.insert(0, content);
+
+    await prefs.setStringList('titles', titles);
+    await prefs.setStringList('contents', contents);
   }
 
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE bilimlar (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL
-      )
-    ''');
-
-    // Boshlang'ich ma'lumotlar
-    await db.insert('bilimlar', {'title': 'Flutter nima?', 'content': 'Google tomonidan yaratilgan cross-platform framework.'});
-    await db.insert('bilimlar', {'title': 'SQLite bazasi', 'content': 'Mahalliy ma\'lumotlarni qurilmada saqlash uchun qulay baza.'});
+  // Sevimlilar ro'yxatini olish
+  static Future<List<String>> getFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList('favorites') ?? [];
   }
 
-  Future<List<Map<String, dynamic>>> getBilimlar() async {
-    final db = await instance.database;
-    return await db.query('bilimlar', orderBy: 'id DESC');
-  }
+  // Sevimlilarga qo'shish yoki o'chirish
+  static Future<void> toggleFavorite(String title) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> favorites = prefs.getStringList('favorites') ?? [];
 
-  Future<int> insertBilim(Map<String, dynamic> row) async {
-    final db = await instance.database;
-    return await db.insert('bilimlar', row);
+    if (favorites.contains(title)) {
+      favorites.remove(title);
+    } else {
+      favorites.add(title);
+    }
+    await prefs.setStringList('favorites', favorites);
   }
 }
 
@@ -76,7 +80,7 @@ class WahhidApp extends StatelessWidget {
       valueListenable: themeNotifier,
       builder: (context, currentTheme, child) {
         return MaterialApp(
-          title: 'Wahhid Pro Ultimate',
+          title: 'Wahhid Pro Favorites',
           themeMode: currentTheme,
           theme: ThemeData(
             brightness: Brightness.light,
@@ -111,6 +115,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const HomeScreen(),
     const BlogScreen(),
+    const FavoritesScreen(), // Yangi qo'shilgan Sevimlilar sahifasi
     const ShareScreen(),
     const SettingsScreen(),
   ];
@@ -130,13 +135,10 @@ class _MainScreenState extends State<MainScreen> {
                 : [const Color(0xFFFFFFFF), const Color(0xFFE2E8F0), const Color(0xFFCBD5E1)],
           ),
         ),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          child: _pages[_currentIndex],
-        ),
+        child: _pages[_currentIndex],
       ),
       bottomNavigationBar: Container(
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
@@ -152,7 +154,7 @@ class _MainScreenState extends State<MainScreen> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B).withOpacity(0.6) : Colors.white.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(24),
@@ -173,6 +175,7 @@ class _MainScreenState extends State<MainScreen> {
                 items: const [
                   BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Asosiy'),
                   BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book), label: 'Bilimlar'),
+                  BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), activeIcon: Icon(Icons.favorite), label: 'Sevimlilar'),
                   BottomNavigationBarItem(icon: Icon(Icons.share_outlined), activeIcon: Icon(Icons.share), label: 'Ulashish'),
                   BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'So\'zlama'),
                 ],
@@ -185,7 +188,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// Universal Glass Card
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -221,7 +223,6 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-// 1. Asosiy Sahifa
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -229,11 +230,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Wahhid • Ultimate Pro', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Wahhid • Ultimate Pro', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -241,19 +238,11 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(Icons.rocket_launch, size: 70, color: Color(0xFF22C55E)),
+                Icon(Icons.favorite, size: 70, color: Colors.redAccent),
                 SizedBox(height: 20),
-                Text(
-                  'Barcha funksiyalar ulandi!',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
+                Text('Sevimlilar bo\'limi muvaffaqiyatli qo\'shildi!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                 SizedBox(height: 10),
-                Text(
-                  'SQLite bazasi, Dark/Light rejim, animatsiyalar, backup va yangi maqola qo\'shish imkoniyatlari faol.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
+                Text('Bilimlar bo\'limida maqolalarga yurakcha bosib, ularni sevimlilarga qo\'shishingiz mumkin.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey)),
               ],
             ),
           ),
@@ -263,7 +252,7 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// 2. Bilimlar Sahifasi (SQLite + Yangi Qo'shish)
+// 2. Bilimlar Sahifasi (Yurakcha / Fav qo'shilgan)
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
 
@@ -272,27 +261,35 @@ class BlogScreen extends StatefulWidget {
 }
 
 class _BlogScreenState extends State<BlogScreen> {
-  late Future<List<Map<String, dynamic>>> _bilimlarList;
+  late Future<List<Map<String, String>>> _bilimlarList;
+  List<String> _favorites = [];
 
   @override
   void initState() {
     super.initState();
-    _loadBilimlar();
+    _loadData();
   }
 
-  void _loadBilimlar() {
+  void _loadData() async {
+    final favs = await LocalStorage.getFavorites();
     setState(() {
-      _bilimlarList = DatabaseHelper.instance.getBilimlar();
+      _bilimlarList = LocalStorage.getBilimlar();
+      _favorites = favs;
     });
   }
 
-  void _showAddDialog() {
+  void _toggleFav(String title) async {
+    await LocalStorage.toggleFavorite(title);
+    _loadData();
+  }
+
+  void _showAddDialog(BuildContext dialogContext) {
     final titleController = TextEditingController();
     final contentController = TextEditingController();
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: dialogContext,
+      builder: (BuildContext ctx) => AlertDialog(
         title: const Text('Yangi Bilim Qo\'shish'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -303,16 +300,13 @@ class _BlogScreenState extends State<BlogScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Bekor qilish')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Bekor qilish')),
           ElevatedButton(
             onPressed: () async {
               if (titleController.text.isNotEmpty && contentController.text.isNotEmpty) {
-                await DatabaseHelper.instance.insertBilim({
-                  'title': titleController.text,
-                  'content': contentController.text,
-                });
-                _loadBilimlar();
-                Navigator.pop(context);
+                await LocalStorage.addBilim(titleController.text, contentController.text);
+                _loadData();
+                Navigator.pop(ctx);
               }
             },
             child: const Text('Saqlash'),
@@ -326,12 +320,8 @@ class _BlogScreenState extends State<BlogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Bilimlar Bazasi (SQLite)', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      appBar: AppBar(title: const Text('Bilimlar Bazasi', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
+      body: FutureBuilder<List<Map<String, String>>>(
         future: _bilimlarList,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -343,15 +333,29 @@ class _BlogScreenState extends State<BlogScreen> {
             padding: const EdgeInsets.all(16),
             itemBuilder: (context, index) {
               final bilim = bilimlar[index];
+              final title = bilim['title']!;
+              final isFav = _favorites.contains(title);
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: GlassCard(
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(bilim['title'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))),
-                      const SizedBox(height: 8),
-                      Text(bilim['content'], style: const TextStyle(fontSize: 14)),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))),
+                            const SizedBox(height: 8),
+                            Text(bilim['content']!, style: const TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.redAccent : Colors.grey),
+                        onPressed: () => _toggleFav(title),
+                      ),
                     ],
                   ),
                 ),
@@ -361,7 +365,7 @@ class _BlogScreenState extends State<BlogScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddDialog,
+        onPressed: () => _showAddDialog(context),
         backgroundColor: const Color(0xFF2563EB),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Qo\'shish', style: TextStyle(color: Colors.white)),
@@ -370,7 +374,79 @@ class _BlogScreenState extends State<BlogScreen> {
   }
 }
 
-// 3. Ulashish Sahifasi
+// 3. Yangi Sevimlilar Sahifasi
+class FavoritesScreen extends StatefulWidget {
+  const FavoritesScreen({super.key});
+
+  @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  late Future<List<Map<String, String>>> _favBilimlar;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  void _loadFavorites() {
+    setState(() {
+      _favBilimlar = _fetchFavs();
+    });
+  }
+
+  Future<List<Map<String, String>>> _fetchFavs() async {
+    final all = await LocalStorage.getBilimlar();
+    final favTitles = await LocalStorage.getFavorites();
+    return all.where((b) => favTitles.contains(b['title'])).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(title: const Text('Saqlangan Sevimlilar', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
+      body: FutureBuilder<List<Map<String, String>>>(
+        future: _favBilimlar,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final favs = snapshot.data!;
+          if (favs.isEmpty) {
+            return const Center(
+              child: Text('Hozircha sevimlilar yo\'q. Bilimlar bo\'limidan yurakcha bosing!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 16)),
+            );
+          }
+          return ListView.builder(
+            itemCount: favs.length,
+            padding: const EdgeInsets.all(16),
+            itemBuilder: (context, index) {
+              final bilim = favs[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(bilim['title']!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                      const SizedBox(height: 8),
+                      Text(bilim['content']!, style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// 4. Ulashish Sahifasi
 class ShareScreen extends StatefulWidget {
   const ShareScreen({super.key});
 
@@ -385,11 +461,7 @@ class _ShareScreenState extends State<ShareScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Ulashish Markazi', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Ulashish Markazi', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: GlassCard(
@@ -433,14 +505,14 @@ class _ShareScreenState extends State<ShareScreen> {
   }
 }
 
-// 4. So'zlamalar Sahifasi (Theme Toggle va Backup)
+// 5. So'zlamalar Sahifasi
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   void _downloadBackup(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Backup muvaffaqiyatli yuklab olindi (.json / .db file)!'),
+        content: Text('Backup muvaffaqiyatli yuklab olindi!'),
         backgroundColor: Color(0xFF22C55E),
       ),
     );
@@ -450,11 +522,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('So\'zlamalar', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('So\'zlamalar', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: GlassCard(
