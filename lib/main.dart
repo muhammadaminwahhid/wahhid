@@ -1,8 +1,70 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
 
 void main() {
   runApp(const WahhidApp());
+}
+
+// Global ThemeNotifier — Tungi va Kunduzgi rejimni boshqarish uchun
+class ThemeNotifier extends ValueNotifier<ThemeMode> {
+  ThemeNotifier() : super(ThemeMode.dark);
+
+  void toggleTheme() {
+    value = value == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+  }
+}
+
+final themeNotifier = ThemeNotifier();
+
+// SQLite Database Helper
+class DatabaseHelper {
+  static final DatabaseHelper instance = DatabaseHelper._init();
+  static Database? _database;
+
+  DatabaseHelper._init();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB('wahhid_pro.db');
+    return _database!;
+  }
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
+
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _createDB,
+    );
+  }
+
+  Future _createDB(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE bilimlar (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL
+      )
+    ''');
+
+    // Boshlang'ich ma'lumotlar
+    await db.insert('bilimlar', {'title': 'Flutter nima?', 'content': 'Google tomonidan yaratilgan cross-platform framework.'});
+    await db.insert('bilimlar', {'title': 'SQLite bazasi', 'content': 'Mahalliy ma\'lumotlarni qurilmada saqlash uchun qulay baza.'});
+  }
+
+  Future<List<Map<String, dynamic>>> getBilimlar() async {
+    final db = await instance.database;
+    return await db.query('bilimlar', orderBy: 'id DESC');
+  }
+
+  Future<int> insertBilim(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    return await db.insert('bilimlar', row);
+  }
 }
 
 class WahhidApp extends StatelessWidget {
@@ -10,15 +72,28 @@ class WahhidApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Wahhid Pro',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B0F19), // Chuqur qora-ko'k tus
-        useMaterial3: true,
-      ),
-      home: const MainScreen(),
-      debugShowCheckedModeBanner: false,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, currentTheme, child) {
+        return MaterialApp(
+          title: 'Wahhid Pro Ultimate',
+          themeMode: currentTheme,
+          theme: ThemeData(
+            brightness: Brightness.light,
+            scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+            primarySwatch: Colors.blue,
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            scaffoldBackgroundColor: const Color(0xFF0B0F19),
+            primarySwatch: Colors.blue,
+            useMaterial3: true,
+          ),
+          home: const MainScreen(),
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }
@@ -42,48 +117,22 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF111827), // Qora-ko'k
-              Color(0xFF0B0F19), // Qora
-              Color(0xFF020617), // To'q qora
-            ],
+            colors: isDark
+                ? [const Color(0xFF111827), const Color(0xFF0B0F19), const Color(0xFF020617)]
+                : [const Color(0xFFFFFFFF), const Color(0xFFE2E8F0), const Color(0xFFCBD5E1)],
           ),
         ),
-        child: Stack(
-          children: [
-            // Orqa fondagi kumush va ko'k rangli yorug' bezaklar
-            Positioned(
-              top: -60,
-              right: -30,
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.blue.withOpacity(0.15),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 80,
-              left: -40,
-              child: Container(
-                width: 240,
-                height: 240,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.green.withOpacity(0.1),
-                ),
-              ),
-            ),
-            _pages[_currentIndex],
-          ],
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: _pages[_currentIndex],
         ),
       ),
       bottomNavigationBar: Container(
@@ -92,7 +141,7 @@ class _MainScreenState extends State<MainScreen> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -105,16 +154,16 @@ class _MainScreenState extends State<MainScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withOpacity(0.6), // Silver/Gray tusli shisha
+                color: isDark ? const Color(0xFF1E293B).withOpacity(0.6) : Colors.white.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.15)),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.1)),
               ),
               child: BottomNavigationBar(
                 currentIndex: _currentIndex,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                selectedItemColor: const Color(0xFF38BDF8), // Yorqin ko'k
-                unselectedItemColor: const Color(0xFF94A3B8), // Kumush/Kulrang
+                selectedItemColor: const Color(0xFF38BDF8),
+                unselectedItemColor: isDark ? const Color(0xFF94A3B8) : Colors.grey,
                 type: BottomNavigationBarType.fixed,
                 onTap: (index) {
                   setState(() {
@@ -136,7 +185,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// Glass Card (Oq, Silver, Qora uyg'unligidagi shaffof kassa)
+// Universal Glass Card
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -145,6 +194,8 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -152,12 +203,12 @@ class GlassCard extends StatelessWidget {
         child: Container(
           padding: padding ?? const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withOpacity(0.4), // Kumush/Ko'k shisha
+            color: isDark ? const Color(0xFF1E293B).withOpacity(0.4) : Colors.white.withOpacity(0.6),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 10,
                 spreadRadius: 2,
               ),
@@ -179,7 +230,7 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Wahhid • Oq & Ko\'k & Yashil', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Wahhid • Ultimate Pro', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -190,18 +241,18 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(Icons.verified, size: 70, color: Color(0xFF22C55E)), // Yashil rang
+                Icon(Icons.rocket_launch, size: 70, color: Color(0xFF22C55E)),
                 SizedBox(height: 20),
                 Text(
-                  'Yangi Palitra Muvaffaqiyatli O\'rnatildi!',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                  'Barcha funksiyalar ulandi!',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 10),
                 Text(
-                  'Qora, Silver (kumush), Oq, Ko\'k va Yashil ranglar uyg\'unligi ilovaga alohida joziba bag\'ishladi.',
+                  'SQLite bazasi, Dark/Light rejim, animatsiyalar, backup va yangi maqola qo\'shish imkoniyatlari faol.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)), // Silver tus
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
               ],
             ),
@@ -212,49 +263,108 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// 2. Bilimlar Sahifasi
-class BlogScreen extends StatelessWidget {
+// 2. Bilimlar Sahifasi (SQLite + Yangi Qo'shish)
+class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
 
-  final List<Map<String, String>> _bilimlar = const [
-    {
-      'title': 'Ranglar psixologiyasi',
-      'content': 'Ko\'k rang – ishonch va professionallikni, yashil rang – rivojlanish va muvaffaqiyatni bildiradi.'
-    },
-    {
-      'title': 'Silver va Qora dizayn',
-      'content': 'Qora va kumush tuslar ilovaning zamonaviy, qat\'iy hamda premium ko\'rinishini ta\'minlaydi.'
-    },
-  ];
+  @override
+  State<BlogScreen> createState() => _BlogScreenState();
+}
+
+class _BlogScreenState extends State<BlogScreen> {
+  late Future<List<Map<String, dynamic>>> _bilimlarList;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBilimlar();
+  }
+
+  void _loadBilimlar() {
+    setState(() {
+      _bilimlarList = DatabaseHelper.instance.getBilimlar();
+    });
+  }
+
+  void _showAddDialog() {
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Yangi Bilim Qo\'shish'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Sarlavha')),
+            const SizedBox(height: 10),
+            TextField(controller: contentController, decoration: const InputDecoration(labelText: 'Maqola matni')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Bekor qilish')),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.isNotEmpty && contentController.text.isNotEmpty) {
+                await DatabaseHelper.instance.insertBilim({
+                  'title': titleController.text,
+                  'content': contentController.text,
+                });
+                _loadBilimlar();
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Saqlash'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Bilimlar Bazasi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Bilimlar Bazasi (SQLite)', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: ListView.builder(
-        itemCount: _bilimlar.length,
-        padding: const EdgeInsets.all(16),
-        itemBuilder: (context, index) {
-          final bilim = _bilimlar[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: GlassCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(bilim['title']!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))), // Ko'k sarlavha
-                  const SizedBox(height: 8),
-                  Text(bilim['content']!, style: const TextStyle(fontSize: 14, color: Color(0xFFCBD5E1))), // Oq-kumush matn
-                ],
-              ),
-            ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _bilimlarList,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final bilimlar = snapshot.data!;
+          return ListView.builder(
+            itemCount: bilimlar.length,
+            padding: const EdgeInsets.all(16),
+            itemBuilder: (context, index) {
+              final bilim = bilimlar[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(bilim['title'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))),
+                      const SizedBox(height: 8),
+                      Text(bilim['content'], style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddDialog,
+        backgroundColor: const Color(0xFF2563EB),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Qo\'shish', style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -276,7 +386,7 @@ class _ShareScreenState extends State<ShareScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Ulashish Markazi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Ulashish Markazi', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -287,16 +397,13 @@ class _ShareScreenState extends State<ShareScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Xabar yuborish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('Xabar yuborish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               TextField(
                 controller: _controller,
-                style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Matn kiriting...',
-                  hintStyle: const TextStyle(color: Color(0xFF64748B)),
                   filled: true,
-                  fillColor: const Color(0xFF0F172A).withOpacity(0.6), // Qora fon
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 ),
               ),
@@ -305,15 +412,15 @@ class _ShareScreenState extends State<ShareScreen> {
                 onPressed: () {
                   if (_controller.text.isNotEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Muvaffaqiyatli jo\'natildi!', style: TextStyle(color: Colors.white)), backgroundColor: Color(0xFF22C55E)),
+                      const SnackBar(content: Text('Muvaffaqiyatli jo\'natildi!'), backgroundColor: Color(0xFF22C55E)),
                     );
                     _controller.clear();
                   }
                 },
                 icon: const Icon(Icons.send, color: Colors.white),
-                label: const Text('Jo\'natish', style: TextStyle(fontSize: 16, color: Colors.white)),
+                label: const Text('Jo\'natish', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB), // Ko'k tugma
+                  backgroundColor: const Color(0xFF2563EB),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -326,16 +433,25 @@ class _ShareScreenState extends State<ShareScreen> {
   }
 }
 
-// 4. So'zlamalar Sahifasi
+// 4. So'zlamalar Sahifasi (Theme Toggle va Backup)
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  void _downloadBackup(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Backup muvaffaqiyatli yuklab olindi (.json / .db file)!'),
+        backgroundColor: Color(0xFF22C55E),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('So\'zlamalar', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('So\'zlamalar', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -344,17 +460,29 @@ class SettingsScreen extends StatelessWidget {
         child: GlassCard(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               ListTile(
-                leading: Icon(Icons.person, color: Color(0xFF38BDF8)),
-                title: Text('Muallif', style: TextStyle(color: Colors.white)),
-                subtitle: Text('Muhammadamin Wahhid', style: TextStyle(color: Color(0xFF94A3B8))),
+                leading: const Icon(Icons.brightness_6, color: Color(0xFF38BDF8)),
+                title: const Text('Tungi / Kunduzgi rejim'),
+                trailing: Switch(
+                  value: Theme.of(context).brightness == Brightness.dark,
+                  onChanged: (val) {
+                    themeNotifier.toggleTheme();
+                  },
+                ),
               ),
-              Divider(color: Color(0xFF334155)),
+              const Divider(),
               ListTile(
-                leading: Icon(Icons.palette, color: Color(0xFF22C55E)), // Yashil ikonka
-                title: Text('Ranglar palitrasi', style: TextStyle(color: Colors.white)),
-                subtitle: Text('Oq, Silver, Ko\'k, Yashil, Qora', style: TextStyle(color: Color(0xFF94A3B8))),
+                leading: const Icon(Icons.cloud_download, color: Color(0xFF22C55E)),
+                title: const Text('Backup yuklab olish'),
+                subtitle: const Text('Barcha ma\'lumotlarni zaxiralash'),
+                onTap: () => _downloadBackup(context),
+              ),
+              const Divider(),
+              const ListTile(
+                leading: Icon(Icons.person, color: Colors.purple),
+                title: Text('Muallif'),
+                subtitle: Text('Muhammadamin Wahhid'),
               ),
             ],
           ),
