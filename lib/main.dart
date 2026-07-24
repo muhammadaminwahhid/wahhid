@@ -17,7 +17,7 @@ class ThemeNotifier extends ValueNotifier<ThemeMode> {
 
 final themeNotifier = ThemeNotifier();
 
-// SharedPreferences Storage Helper (Bilimlar va Sevimlilar uchun)
+// SharedPreferences Storage Helper
 class LocalStorage {
   static Future<List<Map<String, String>>> getBilimlar() async {
     final prefs = await SharedPreferences.getInstance();
@@ -25,11 +25,13 @@ class LocalStorage {
       'Flutter nima?',
       'Shared Preferences',
       'Sevimlilar tizimi',
+      'Qidiruv tizimi (Search)',
     ];
     final contents = prefs.getStringList('contents') ?? [
       'Google tomonidan yaratilgan cross-platform framework.',
       'Ma\'lumotlarni qurilmada kalit-qiymat ko\'rinishida saqlash.',
-      'Foydalanuvchiga yoqqan maqolalarni alohida saqlab borish imkoniyati.'
+      'Foydalanuvchiga yoqqan maqolalarni alohida saqlab borish imkoniyati.',
+      'Maqolalar orasidan keraklisini tezda topish uchun qidiruv filtri.'
     ];
 
     List<Map<String, String>> list = [];
@@ -51,13 +53,11 @@ class LocalStorage {
     await prefs.setStringList('contents', contents);
   }
 
-  // Sevimlilar ro'yxatini olish
   static Future<List<String>> getFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList('favorites') ?? [];
   }
 
-  // Sevimlilarga qo'shish yoki o'chirish
   static Future<void> toggleFavorite(String title) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> favorites = prefs.getStringList('favorites') ?? [];
@@ -80,7 +80,7 @@ class WahhidApp extends StatelessWidget {
       valueListenable: themeNotifier,
       builder: (context, currentTheme, child) {
         return MaterialApp(
-          title: 'Wahhid Pro Favorites',
+          title: 'Wahhid Pro Search',
           themeMode: currentTheme,
           theme: ThemeData(
             brightness: Brightness.light,
@@ -115,7 +115,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const HomeScreen(),
     const BlogScreen(),
-    const FavoritesScreen(), // Yangi qo'shilgan Sevimlilar sahifasi
+    const FavoritesScreen(),
     const ShareScreen(),
     const SettingsScreen(),
   ];
@@ -238,11 +238,11 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(Icons.favorite, size: 70, color: Colors.redAccent),
+                Icon(Icons.search, size: 70, color: Color(0xFF38BDF8)),
                 SizedBox(height: 20),
-                Text('Sevimlilar bo\'limi muvaffaqiyatli qo\'shildi!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                Text('Qidiruv tizimi qo\'shildi!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                 SizedBox(height: 10),
-                Text('Bilimlar bo\'limida maqolalarga yurakcha bosib, ularni sevimlilarga qo\'shishingiz mumkin.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey)),
+                Text('Bilimlar bo\'limida endi maqolalarni qidiruv satri orqali tezda topishingiz mumkin.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey)),
               ],
             ),
           ),
@@ -252,7 +252,7 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// 2. Bilimlar Sahifasi (Yurakcha / Fav qo'shilgan)
+// 2. Bilimlar Sahifasi (Real-time Search bilan)
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
 
@@ -261,26 +261,51 @@ class BlogScreen extends StatefulWidget {
 }
 
 class _BlogScreenState extends State<BlogScreen> {
-  late Future<List<Map<String, String>>> _bilimlarList;
+  List<Map<String, String>> _allBilimlar = [];
+  List<Map<String, String>> _filteredBilimlar = [];
   List<String> _favorites = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _searchController.addListener(_filterSearch);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadData() async {
+    final all = await LocalStorage.getBilimlar();
     final favs = await LocalStorage.getFavorites();
     setState(() {
-      _bilimlarList = LocalStorage.getBilimlar();
+      _allBilimlar = all;
+      _filteredBilimlar = all;
       _favorites = favs;
+    });
+  }
+
+  void _filterSearch() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredBilimlar = _allBilimlar.where((bilim) {
+        final title = bilim['title']!.toLowerCase();
+        final content = bilim['content']!.toLowerCase();
+        return title.contains(query) || content.contains(query);
+      }).toList();
     });
   }
 
   void _toggleFav(String title) async {
     await LocalStorage.toggleFavorite(title);
-    _loadData();
+    final favs = await LocalStorage.getFavorites();
+    setState(() {
+      _favorites = favs;
+    });
   }
 
   void _showAddDialog(BuildContext dialogContext) {
@@ -320,49 +345,61 @@ class _BlogScreenState extends State<BlogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Bilimlar Bazasi', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
-      body: FutureBuilder<List<Map<String, String>>>(
-        future: _bilimlarList,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final bilimlar = snapshot.data!;
-          return ListView.builder(
-            itemCount: bilimlar.length,
-            padding: const EdgeInsets.all(16),
-            itemBuilder: (context, index) {
-              final bilim = bilimlar[index];
-              final title = bilim['title']!;
-              final isFav = _favorites.contains(title);
+      appBar: AppBar(title: const Text('Bilimlar Bazasi & Qidiruv', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
+      body: Column(
+        children: [
+          // Qidiruv paneli
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Maqolalardan qidirish...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _filteredBilimlar.isEmpty
+                ? const Center(child: Text('Hech qanday natija topilmadi', style: TextStyle(color: Colors.grey)))
+                : ListView.builder(
+                    itemCount: _filteredBilimlar.length,
+                    padding: const EdgeInsets.all(16),
+                    itemBuilder: (context, index) {
+                      final bilim = _filteredBilimlar[index];
+                      final title = bilim['title']!;
+                      final isFav = _favorites.contains(title);
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: GlassCard(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))),
-                            const SizedBox(height: 8),
-                            Text(bilim['content']!, style: const TextStyle(fontSize: 14)),
-                          ],
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: GlassCard(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))),
+                                    const SizedBox(height: 8),
+                                    Text(bilim['content']!, style: const TextStyle(fontSize: 14)),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.redAccent : Colors.grey),
+                                onPressed: () => _toggleFav(title),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.redAccent : Colors.grey),
-                        onPressed: () => _toggleFav(title),
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                ),
-              );
-            },
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context),
@@ -374,7 +411,7 @@ class _BlogScreenState extends State<BlogScreen> {
   }
 }
 
-// 3. Yangi Sevimlilar Sahifasi
+// 3. Sevimlilar Sahifasi
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
 
@@ -383,7 +420,7 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
-  late Future<List<Map<String, String>>> _favBilimlar;
+  List<Map<String, String>> _favBilimlar = [];
 
   @override
   void initState() {
@@ -391,16 +428,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     _loadFavorites();
   }
 
-  void _loadFavorites() {
-    setState(() {
-      _favBilimlar = _fetchFavs();
-    });
-  }
-
-  Future<List<Map<String, String>>> _fetchFavs() async {
+  void _loadFavorites() async {
     final all = await LocalStorage.getBilimlar();
     final favTitles = await LocalStorage.getFavorites();
-    return all.where((b) => favTitles.contains(b['title'])).toList();
+    setState(() {
+      _favBilimlar = all.where((b) => favTitles.contains(b['title'])).toList();
+    });
   }
 
   @override
@@ -408,40 +441,30 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Saqlangan Sevimlilar', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.transparent, elevation: 0),
-      body: FutureBuilder<List<Map<String, String>>>(
-        future: _favBilimlar,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final favs = snapshot.data!;
-          if (favs.isEmpty) {
-            return const Center(
+      body: _favBilimlar.isEmpty
+          ? const Center(
               child: Text('Hozircha sevimlilar yo\'q. Bilimlar bo\'limidan yurakcha bosing!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 16)),
-            );
-          }
-          return ListView.builder(
-            itemCount: favs.length,
-            padding: const EdgeInsets.all(16),
-            itemBuilder: (context, index) {
-              final bilim = favs[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(bilim['title']!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent)),
-                      const SizedBox(height: 8),
-                      Text(bilim['content']!, style: const TextStyle(fontSize: 14)),
-                    ],
+            )
+          : ListView.builder(
+              itemCount: _favBilimlar.length,
+              padding: const EdgeInsets.all(16),
+              itemBuilder: (context, index) {
+                final bilim = _favBilimlar[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(bilim['title']!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                        const SizedBox(height: 8),
+                        Text(bilim['content']!, style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          );
-        },
-      ),
+                );
+              },
+            ),
     );
   }
 }
