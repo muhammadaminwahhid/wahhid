@@ -11,11 +11,10 @@ class WahhidApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Wahhid Glassmorphism',
+      title: 'Wahhid Pro',
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        primarySwatch: Colors.deepPurple,
+        scaffoldBackgroundColor: const Color(0xFF0B0F19), // Chuqur qora-ko'k tus
         useMaterial3: true,
       ),
       home: const MainScreen(),
@@ -47,43 +46,42 @@ class _MainScreenState extends State<MainScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF1E1B4B), // To'q binafsha
-              Color(0xFF0F172A), // To'q ko'k / qora
-              Color(0xFF31103A), // Ochroq tus
+              Color(0xFF111827), // Qora-ko'k
+              Color(0xFF0B0F19), // Qora
+              Color(0xFF020617), // To'q qora
             ],
           ),
         ),
         child: Stack(
           children: [
-            // Orqa fondagi yorug' dekorativ sharlar (Glassmorphism muhitini berish uchun)
+            // Orqa fondagi kumush va ko'k rangli yorug' bezaklar
             Positioned(
-              top: -50,
-              left: -50,
+              top: -60,
+              right: -30,
               child: Container(
-                width: 200,
-                height: 200,
+                width: 220,
+                height: 220,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.purple.withOpacity(0.3),
+                  color: Colors.blue.withOpacity(0.15),
                 ),
               ),
             ),
             Positioned(
-              bottom: 100,
-              right: -50,
+              bottom: 80,
+              left: -40,
               child: Container(
-                width: 250,
-                height: 250,
+                width: 240,
+                height: 240,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.blue.withOpacity(0.2),
+                  color: Colors.green.withOpacity(0.1),
                 ),
               ),
             ),
-            // Asosiy sahifalar
             _pages[_currentIndex],
           ],
         ),
@@ -94,29 +92,29 @@ class _MainScreenState extends State<MainScreen> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: const Color(0xFF1E293B).withOpacity(0.6), // Silver/Gray tusli shisha
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                border: Border.all(color: Colors.white.withOpacity(0.15)),
               ),
               child: BottomNavigationBar(
                 currentIndex: _currentIndex,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                selectedItemColor: Colors.purpleAccent,
-                unselectedItemColor: Colors.white60,
+                selectedItemColor: const Color(0xFF38BDF8), // Yorqin ko'k
+                unselectedItemColor: const Color(0xFF94A3B8), // Kumush/Kulrang
                 type: BottomNavigationBarType.fixed,
                 onTap: (index) {
                   setState(() {
@@ -138,7 +136,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// Glass Container (Shisha effektini yasab beruvchi yordamchi widget)
+// Glass Card (Oq, Silver, Qora uyg'unligidagi shaffof kassa)
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -154,12 +152,12 @@ class GlassCard extends StatelessWidget {
         child: Container(
           padding: padding ?? const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.07),
+            color: const Color(0xFF1E293B).withOpacity(0.4), // Kumush/Ko'k shisha
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.15)),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withOpacity(0.2),
                 blurRadius: 10,
                 spreadRadius: 2,
               ),
@@ -181,7 +179,7 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Wahhid • Glass Edition', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Wahhid • Oq & Ko\'k & Yashil', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -192,18 +190,18 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(Icons.auto_awesome, size: 70, color: Colors.purpleAccent),
+                Icon(Icons.verified, size: 70, color: Color(0xFF22C55E)), // Yashil rang
                 SizedBox(height: 20),
                 Text(
-                  'Glassmorphism + Classic',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                  'Yangi Palitra Muvaffaqiyatli O\'rnatildi!',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 10),
                 Text(
-                  'Interfeys endi shaffof oyna va klassik qat\'iy stillar uyg\'unligida yanada jozibali ko\'rinishga ega.',
+                  'Qora, Silver (kumush), Oq, Ko\'k va Yashil ranglar uyg\'unligi ilovaga alohida joziba bag\'ishladi.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.white70),
+                  style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)), // Silver tus
                 ),
               ],
             ),
@@ -220,12 +218,12 @@ class BlogScreen extends StatelessWidget {
 
   final List<Map<String, String>> _bilimlar = const [
     {
-      'title': 'Glassmorphism nima?',
-      'content': 'Bu interfeys dizayn trendi bo\'lib, xira oyna (frosted glass) effektini yaratish orqali chuqurlik va zamonaviy ko\'rinish beradi.'
+      'title': 'Ranglar psixologiyasi',
+      'content': 'Ko\'k rang – ishonch va professionallikni, yashil rang – rivojlanish va muvaffaqiyatni bildiradi.'
     },
     {
-      'title': 'Classic & Modern uyg\'unligi',
-      'content': 'Klassik tartib va qat\'iy elementlarni zamonaviy shaffof qatlamlar bilan birlashtirish foydalanuvchiga qulaylik yaratadi.'
+      'title': 'Silver va Qora dizayn',
+      'content': 'Qora va kumush tuslar ilovaning zamonaviy, qat\'iy hamda premium ko\'rinishini ta\'minlaydi.'
     },
   ];
 
@@ -234,7 +232,7 @@ class BlogScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Bilimlar Bazasi', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Bilimlar Bazasi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -249,9 +247,9 @@ class BlogScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(bilim['title']!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text(bilim['title']!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))), // Ko'k sarlavha
                   const SizedBox(height: 8),
-                  Text(bilim['content']!, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+                  Text(bilim['content']!, style: const TextStyle(fontSize: 14, color: Color(0xFFCBD5E1))), // Oq-kumush matn
                 ],
               ),
             ),
@@ -278,7 +276,7 @@ class _ShareScreenState extends State<ShareScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Ulashish Markazi', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Ulashish Markazi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -289,34 +287,36 @@ class _ShareScreenState extends State<ShareScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Fikr yoki xabar yuborish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('Xabar yuborish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 12),
               TextField(
                 controller: _controller,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Xabar yozing...',
-                  hintStyle: const TextStyle(color: Colors.white38),
+                  hintText: 'Matn kiriting...',
+                  hintStyle: const TextStyle(color: Color(0xFF64748B)),
                   filled: true,
-                  fillColor: Colors.black.withOpacity(0.2),
+                  fillColor: const Color(0xFF0F172A).withOpacity(0.6), // Qora fon
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 ),
               ),
               const SizedBox(height: 15),
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: () {
                   if (_controller.text.isNotEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Muvaffaqiyatli jo\'natildi!')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Muvaffaqiyatli jo\'natildi!', style: TextStyle(color: Colors.white)), backgroundColor: Color(0xFF22C55E)),
+                    );
                     _controller.clear();
                   }
                 },
+                icon: const Icon(Icons.send, color: Colors.white),
+                label: const Text('Jo\'natish', style: TextStyle(fontSize: 16, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purpleAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFF2563EB), // Ko'k tugma
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Jo\'natish', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
@@ -335,7 +335,7 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('So\'zlamalar', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('So\'zlamalar', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -346,15 +346,15 @@ class SettingsScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: const [
               ListTile(
-                leading: Icon(Icons.person, color: Colors.purpleAccent),
+                leading: Icon(Icons.person, color: Color(0xFF38BDF8)),
                 title: Text('Muallif', style: TextStyle(color: Colors.white)),
-                subtitle: Text('Muhammadamin Wahhid', style: TextStyle(color: Colors.white60)),
+                subtitle: Text('Muhammadamin Wahhid', style: TextStyle(color: Color(0xFF94A3B8))),
               ),
-              Divider(color: Colors.white24),
+              Divider(color: Color(0xFF334155)),
               ListTile(
-                leading: Icon(Icons.style, color: Colors.purpleAccent),
-                title: Text('Dizayn uslubi', style: TextStyle(color: Colors.white)),
-                subtitle: Text('Glassmorphism & Classic v2.0', style: TextStyle(color: Colors.white60)),
+                leading: Icon(Icons.palette, color: Color(0xFF22C55E)), // Yashil ikonka
+                title: Text('Ranglar palitrasi', style: TextStyle(color: Colors.white)),
+                subtitle: Text('Oq, Silver, Ko\'k, Yashil, Qora', style: TextStyle(color: Color(0xFF94A3B8))),
               ),
             ],
           ),
